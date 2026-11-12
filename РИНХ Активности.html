@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>РИНХ Активности</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:var(--tg-theme-bg-color,#fff);--text:var(--tg-theme-text-color,#111);--hint:var(--tg-theme-hint-color,#777);--btn:var(--tg-theme-button-color,#2481cc);--btntext:var(--tg-theme-button-text-color,#fff);--card:var(--tg-theme-secondary-bg-color,#f1f3f5)}
+*{box-sizing:border-box}
+body{margin:0;padding:12px 12px 40px;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,Segoe UI,Roboto,sans-serif}
+h1{font-size:20px;margin:4px 0 12px}
+h2{font-size:13px;color:var(--hint);text-transform:uppercase;margin:14px 0 6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:0;border-radius:16px;padding:8px 12px;background:var(--card);color:var(--text);font-size:14px}
+.chip.on{background:var(--btn);color:var(--btntext)}
+.card{background:var(--card);border-radius:12px;padding:12px;margin:10px 0}
+.card h3{margin:0 0 4px;font-size:16px;display:flex;justify-content:space-between;gap:8px}
+.card p{margin:4px 0;color:var(--hint);font-size:14px}
+.more{display:none;margin-top:8px;font-size:14px}
+.card.open .more{display:block}
+.star{border:0;background:none;font-size:22px;padding:0}
+.warn{color:#c0392b;font-size:12px}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.empty{color:var(--hint);text-align:center;margin:30px 0}
+</style>
+</head>
+<body>
+<h1>🎓 Активности РГЭУ (РИНХ)</h1>
+<div class="tabs"><button class="chip on" id="tab-all">Подбор</button><button class="chip" id="tab-fav">⭐ Избранное</button></div>
+<div id="filters"></div>
+<div id="list"></div>
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+const INTERESTS = {sport:"🏃 Спорт",science:"🔬 Наука",creative:"🎭 Творчество",volunteer:"🤝 Волонтёрство",business:"💼 Бизнес",it:"💻 IT",media:"🎥 Медиа",leadership:"🧭 Лидерство"};
+const LEVELS = {"":"Любой",beginner:"🌱 Новичок",middle:"⚡ Средний",pro:"🏆 Продвинутый"};
+const FORMATS = {any:"Не важно",offline:"Очно",online:"Онлайн"};
+
+// ДАННЫЕ: замените демо-карточки на реальные (verified:true)
+const ACTIVITIES = [
+ {id:"studsovet",title:"Студенческий совет РГЭУ (РИНХ)",description:"Орган студенческого самоуправления: мероприятия, комитеты и клубы, в том числе медиа- и телевизионный.",interests:["leadership","media","volunteer"],levels:["beginner","middle","pro"],format:"both",schedule:"Уточнить у студсовета",contact:"rsue.ru, раздел «Студенческая жизнь»",verified:true},
+ {id:"demo_sport",title:"Спортивный клуб (демо)",description:"Секции и студенческие соревнования.",interests:["sport"],levels:["beginner","middle","pro"],format:"offline",schedule:"Пн, Ср 18:00 (пример)",contact:"Кафедра физвоспитания (уточнить)"},
+ {id:"demo_sci",title:"Студенческое научное общество (демо)",description:"Доклады, конференции, публикации.",interests:["science"],levels:["middle","pro"],format:"both",schedule:"По графику конференций (пример)",contact:"Научный отдел (уточнить)"},
+ {id:"demo_vol",title:"Волонтёрский центр (демо)",description:"Социальные и городские проекты.",interests:["volunteer"],levels:["beginner","middle"],format:"offline",schedule:"По проектам (пример)",contact:"Уточнить"},
+ {id:"demo_creative",title:"Творческая студия (демо)",description:"Вокал, танцы, КВН, театр.",interests:["creative"],levels:["beginner","middle","pro"],format:"offline",schedule:"Вт, Чт 17:30 (пример)",contact:"Уточнить"},
+ {id:"demo_biz",title:"Бизнес-клуб (демо)",description:"Кейс-чемпионаты, встречи с предпринимателями.",interests:["business","leadership"],levels:["middle","pro"],format:"both",schedule:"Раз в две недели (пример)",contact:"Уточнить"},
+ {id:"demo_it",title:"IT-клуб / хакатоны (демо)",description:"Разработка, аналитика, хакатоны.",interests:["it","science"],levels:["beginner","middle","pro"],format:"online",schedule:"Сб 12:00 (пример)",contact:"Уточнить"}
+];
+
+const state = {interests:new Set(), level:"", format:"any", tab:"all", open:null};
+let favs = new Set();
+try { favs = new Set(JSON.parse(localStorage.getItem("favs") || "[]")); } catch(e) {}
+const saveFavs = () => { try { localStorage.setItem("favs", JSON.stringify([...favs])); } catch(e) {} };
+
+function chips(obj, isOn, onClick) {
+  const wrap = document.createElement("div"); wrap.className = "chips";
+  for (const [k, label] of Object.entries(obj)) {
+    const b = document.createElement("button");
+    b.className = "chip" + (isOn(k) ? " on" : ""); b.textContent = label;
+    b.onclick = () => { onClick(k); render(); };
+    wrap.appendChild(b);
+  }
+  return wrap;
+}
+function h(text) { const e = document.createElement("h2"); e.textContent = text; return e; }
+
+function match() {
+  return ACTIVITIES.map(a => ({a, score: a.interests.filter(i => state.interests.has(i)).length}))
+    .filter(({a, score}) =>
+      (!state.level || a.levels.includes(state.level)) &&
+      (state.format === "any" || a.format === "both" || a.format === state.format) &&
+      (state.interests.size === 0 || score > 0))
+    .sort((x, y) => y.score - x.score).map(x => x.a);
+}
+
+function render() {
+  document.getElementById("tab-all").className = "chip" + (state.tab === "all" ? " on" : "");
+  document.getElementById("tab-fav").className = "chip" + (state.tab === "fav" ? " on" : "");
+  const f = document.getElementById("filters"); f.innerHTML = "";
+  if (state.tab === "all") {
+    f.append(h("Интересы"), chips(INTERESTS, k => state.interests.has(k), k => state.interests.has(k) ? state.interests.delete(k) : state.interests.add(k)));
+    f.append(h("Уровень"), chips(LEVELS, k => state.level === k, k => state.level = k));
+    f.append(h("Формат"), chips(FORMATS, k => state.format === k, k => state.format = k));
+  }
+  const items = state.tab === "fav" ? ACTIVITIES.filter(a => favs.has(a.id)) : match();
+  const list = document.getElementById("list"); list.innerHTML = "";
+  if (!items.length) { list.innerHTML = '<div class="empty">' + (state.tab === "fav" ? "Пока пусто. Сохраняйте активности ⭐" : "Ничего не найдено. Измените фильтры.") + "</div>"; return; }
+  list.append(h("Найдено: " + items.length));
+  for (const a of items) {
+    const c = document.createElement("div"); c.className = "card" + (state.open === a.id ? " open" : "");
+    const tags = a.interests.map(i => INTERESTS[i]).join(", ");
+    const levels = a.levels.map(l => LEVELS[l]).join(", ");
+    const warn = a.verified ? "" : '<div class="warn">⚠️ Демо-данные: уточните на rsue.ru</div>';
+    c.innerHTML = `<h3><span></span><button class="star">${favs.has(a.id) ? "⭐" : "☆"}</button></h3><p></p><div class="more"></div>`;
+    c.querySelector("span").textContent = a.title;
+    c.querySelector("p").textContent = a.description;
+    const more = c.querySelector(".more");
+    more.innerHTML = `<div>🏷 ${tags}</div><div>📊 ${levels}</div><div>🕒 <span class="s"></span></div><div>📞 <span class="c"></span></div>${warn}`;
+    more.querySelector(".s").textContent = a.schedule; more.querySelector(".c").textContent = a.contact;
+    c.onclick = () => { state.open = state.open === a.id ? null : a.id; render(); };
+    c.querySelector(".star").onclick = e => { e.stopPropagation(); favs.has(a.id) ? favs.delete(a.id) : favs.add(a.id); saveFavs(); if (tg && tg.HapticFeedback) tg.HapticFeedback.selectionChanged(); render(); };
+    list.appendChild(c);
+  }
+}
+document.getElementById("tab-all").onclick = () => { state.tab = "all"; render(); };
+document.getElementById("tab-fav").onclick = () => { state.tab = "fav"; render(); };
+render();
+</script>
+</body>
+</html>
