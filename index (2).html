@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>РИНХ Активности</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:var(--tg-theme-bg-color,#fff);--text:var(--tg-theme-text-color,#14181f);--hint:var(--tg-theme-hint-color,#6b7480);--btn:var(--tg-theme-button-color,#2f6fdb);--btnt:var(--tg-theme-button-text-color,#fff);--card:var(--tg-theme-secondary-bg-color,#f2f5f9)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:40px}
+.hero{background:linear-gradient(135deg,#1c4fb0,#3d8ee8);color:#fff;padding:22px 16px 26px;border-radius:0 0 24px 24px}
+.hero h1{margin:0 0 4px;font-size:22px}.hero p{margin:0;opacity:.9;font-size:14px}
+.stat{display:inline-block;margin-top:12px;background:rgba(255,255,255,.2);border-radius:12px;padding:4px 10px;font-size:13px}
+.wrap{padding:0 14px}
+.search{width:100%;margin:-18px 0 10px;padding:12px 14px;border:0;border-radius:14px;background:var(--bg);color:var(--text);font-size:16px;box-shadow:0 2px 10px rgba(0,0,0,.15)}
+.tabs{display:flex;gap:6px;margin:8px 0}
+.tab{flex:1;border:0;border-radius:12px;padding:10px 2px;background:var(--card);color:var(--text);font-size:13px;font-weight:600}
+.tab.on{background:var(--btn);color:var(--btnt)}
+.row{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none}
+.row::-webkit-scrollbar{display:none}
+.chip{flex:none;border:0;border-radius:18px;padding:8px 13px;background:var(--card);color:var(--text);font-size:14px}
+.chip.on{background:var(--btn);color:var(--btnt)}
+.sel{display:flex;gap:8px;margin-bottom:6px}
+select{flex:1;padding:9px;border:0;border-radius:12px;background:var(--card);color:var(--text);font-size:14px}
+.cnt{color:var(--hint);font-size:13px;margin:8px 2px}
+.card{background:var(--card);border-radius:16px;padding:14px;margin:10px 0}
+.top{display:flex;gap:12px;align-items:flex-start}
+.ic{flex:none;width:44px;height:44px;border-radius:12px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:24px}
+.ti{flex:1;min-width:0}.ti b{display:block;font-size:16px}.ti span{color:var(--hint);font-size:14px}
+.star{border:0;background:none;font-size:24px;padding:0;color:var(--text)}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.tag{font-size:12px;border-radius:8px;padding:3px 8px;background:var(--bg);color:var(--hint)}
+.more{display:none;margin-top:12px;font-size:14px;border-top:1px solid rgba(128,128,128,.2);padding-top:10px}
+.card.open .more{display:block}
+.more p{margin:0 0 8px}
+.btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.b{display:inline-block;border-radius:10px;padding:9px 14px;font-size:14px;font-weight:600;text-decoration:none;background:var(--btn);color:var(--btnt)}
+.b.alt{background:var(--bg);color:var(--text)}
+.ev{display:flex;gap:12px;align-items:center}
+.date{flex:none;width:58px;text-align:center;border-radius:12px;background:var(--btn);color:var(--btnt);padding:8px 2px;font-size:13px;font-weight:700;line-height:1.2}
+.empty{text-align:center;color:var(--hint);margin:36px 0}
+.note{font-size:12px;color:var(--hint);margin:18px 2px}
+button.b{border:0;cursor:pointer;font-family:inherit}.hint{color:var(--hint);font-size:13px;display:block;margin:6px 0}input[type=text],#fio{width:100%;padding:11px;margin:6px 0;border:0;border-radius:12px;background:var(--bg);color:var(--text);font-size:16px}#crs,#fac{width:100%;margin:6px 0;background:var(--bg)}.chk{display:flex;gap:8px;font-size:13px;margin:8px 0;align-items:flex-start}.err{color:#d33;font-size:13px;min-height:18px}.lg,.wh{white-space:pre-line}.wh{color:var(--hint)}
+</style>
+</head>
+<body>
+<div class="hero"><h1>🎓 Активности РГЭУ (РИНХ)</h1><p id="hp">Найди клуб, центр или секцию по интересам</p><span class="stat" id="stat"></span></div>
+<div class="wrap">
+<input class="search" id="q" type="search" placeholder="Поиск: спорт, волонтёры, КВН…">
+<div class="tabs"><button class="tab on" data-t="all">Каталог</button><button class="tab" data-t="ev">События</button><button class="tab" data-t="fav">⭐</button><button class="tab" data-t="me">👤 Кабинет</button></div>
+<div id="filters"></div><div id="list"></div>
+<p class="note">Данные собраны из открытых источников (сайт rsue.ru, буклет для абитуриентов, университетская газета «Экономист»). Проверено 13.11.2026. Расписания и условия вступления уточняйте у организаторов.</p>
+</div>
+<script>
+const tg = window.Telegram && Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const I = {sport:"🏃 Спорт",science:"🔬 Наука",creative:"🎭 Творчество",volunteer:"🤝 Волонтёрство",business:"💼 Бизнес",it:"💻 IT",media:"🎥 Медиа",leadership:"🧭 Лидерство",service:"🛎 Сервис"};
+const L = {"":"Любой уровень",beginner:"Новичок",middle:"Средний",pro:"Продвинутый"};
+const F = {any:"Любой формат",offline:"Очно",online:"Онлайн"};
+const S = "https://rsue.ru/studentam/", M = "sovetrgeurinh@yandex.ru";
+const A = [
+{id:"sovet",e:"🧭",t:"Студенческий совет",d:"Высший орган студенческого самоуправления: студенческие деканы факультетов, комитеты, медиа- и телевизионный клубы.",i:["leadership","media","volunteer"],l:["beginner","middle","pro"],f:"both",how:"Напишите на почту совета или приходите на Б. Садовую, 69.",url:S+"stud-sovet/",mail:M},
+{id:"profkom",e:"🤝",t:"Профсоюзный комитет обучающихся",d:"Более 4 тысяч членов. Мероприятия, поддержка студентов, лидерское развитие и поездки по югу России.",i:["leadership","creative"],l:["beginner","middle","pro"],f:"both",how:"Вступить можно через профсоюзную организацию обучающихся.",url:S+"profkom/"},
+{id:"skc",e:"🎤",t:"Студенческий культурный центр",d:"Творческие коллективы университета: вокал, ансамбли, концертные программы на праздниках вуза.",i:["creative"],l:["beginner","middle","pro"],f:"offline",how:"Состав коллективов и прослушивания уточняйте в центре.",url:S+"vosp-sport/"},
+{id:"shtab",e:"🧢",t:"Штаб студенческих отрядов",d:"Студенческие отряды университета: работа и проекты, командный опыт, трудовой семестр.",i:["leadership","volunteer"],l:["beginner","middle"],f:"offline",how:"Набор объявляется через студсовет и штаб.",url:S+"stud-sovet/",mail:M},
+{id:"vol",e:"💚",t:"Волонтёрский центр",d:"Добровольческие проекты и социальные акции университета. Есть утверждённое положение о центре.",i:["volunteer"],l:["beginner","middle","pro"],f:"offline",how:"Запись и анкеты уточняйте у студсовета.",url:S+"stud-sovet/",mail:M},
+{id:"dorm",e:"🏠",t:"Студенческий совет общежития",d:"Подразделение студсовета: представляет интересы живущих в общежитиях, организует жизнь студгородка.",i:["leadership"],l:["beginner","middle"],f:"offline",how:"Обращайтесь в общежитии или через студсовет.",url:S+"vosp-sport/studencheskiy-sovet-obshchezhitiya/"},
+{id:"kip",e:"💡",t:"Точка кипения РГЭУ (РИНХ)",d:"Площадка для проектных сессий, форумов и встреч со студентами, в том числе с ректором.",i:["business","science","leadership"],l:["middle","pro"],f:"offline",how:"Следите за анонсами мероприятий на сайте университета.",url:S},
+{id:"sci",e:"🔬",t:"Студенческая наука",d:"Конференции и семинары, включая международные, научные проекты и участие в конкурсах.",i:["science"],l:["middle","pro"],f:"both",how:"Обратитесь на кафедру или в научный отдел.",url:S},
+{id:"proj",e:"🚀",t:"Проектная деятельность",d:"Студенческие проекты и командная работа над реальными задачами.",i:["business","leadership"],l:["middle","pro"],f:"both",how:"Подробности в разделе «Проектная деятельность».",url:S},
+{id:"cyber",e:"🎮",t:"Киберспортивный клуб",d:"Работает с 2021 года, оборудована площадка с мощными компьютерами для соревнований.",i:["sport","it"],l:["beginner","middle","pro"],f:"offline",how:"Состав и турниры уточняйте у организаторов клуба.",url:S},
+{id:"chess",e:"♟",t:"Шахматный клуб имени Кудряшова",d:"Шахматный клуб университета, носит имя международного гроссмейстера Кудряшова.",i:["sport"],l:["beginner","middle","pro"],f:"offline",how:"Расписание уточняйте в университете.",url:S},
+{id:"tour",e:"🥾",t:"Туристический и бильярдный клубы",d:"Клубы по интересам при университете: походы и бильярд.",i:["sport"],l:["beginner","middle"],f:"offline",how:"Контакты руководителей уточняйте в отделе воспитательной работы.",url:S+"vosp-sport/"},
+{id:"sport",e:"🏅",t:"Спортивные секции и спартакиады",d:"В университете 4 спортивных комплекса, студенты участвуют в спартакиадах и соревнованиях.",i:["sport"],l:["beginner","middle","pro"],f:"offline",how:"Список секций и запись на кафедре физического воспитания.",url:S+"vosp-sport/"},
+{id:"media",e:"🎥",t:"Медиацентр университета",d:"Университетские медиа: новости, фото и видео. Рядом работают медиа- и телевизионный клубы студсовета.",i:["media"],l:["beginner","middle","pro"],f:"both",how:"Набор в медиа-клубы объявляет студсовет.",url:S+"stud-sovet/",mail:M},
+{id:"career",e:"🧑‍💼",t:"Центр развития карьеры",d:"Практики и стажировки на предприятиях Ростовской области и ЮФО, подготовка к трудоустройству.",i:["business"],l:["middle","pro"],f:"both",how:"Приходите в центр, расписание консультаций на сайте.",url:S},
+{id:"mfc",e:"🛎",t:"Студенческий МФЦ",d:"Многофункциональный центр, открыт в январе 2026 года: сервисы и справки для студентов в одном месте.",i:["service"],l:["beginner","middle","pro"],f:"offline",how:"Работает как «единое окно». Услуги и график уточняйте в центре.",url:S}
+];
+const W = "Начните со студенческого совета: sovetrgeurinh@yandex.ru, главный корпус, ул. Б. Садовая, 69. Там подскажут контакт руководителя.";
+const X = {
+sovet:{long:"Студенческий совет — центр студенческой жизни РГЭУ (РИНХ). Здесь придумывают и проводят университетские события, представляют интересы студентов перед администрацией и помогают новичкам освоиться. У каждого факультета есть студенческий декан, а при совете работают комитеты и клубы, в том числе медиа- и телевизионный. Это быстрый способ найти друзей, набраться организаторского опыта и сделать вуз «своим».",where:"Почта sovetrgeurinh@yandex.ru или главный корпус, ул. Б. Садовая, 69. Также можно написать студенческому декану своего факультета."},
+profkom:{long:"Профсоюзная организация обучающихся объединяет более четырёх тысяч студентов, магистрантов и аспирантов. Это сообщество, которое помогает в трудную минуту, учит новому и развивает лидерские качества. Участники знакомятся с ребятами с разных факультетов, ездят по югу России и показывают «настоящую студенческую жизнь». Хорошая точка входа, если хочется общения и поддержки.",where:"Раздел «Профсоюзный комитет обучающихся» на rsue.ru. Если не нашли контакты, начните со студсовета: sovetrgeurinh@yandex.ru."},
+skc:{long:"Студенческий культурный центр — дом творческих коллективов университета. Его артисты выступают на главных праздниках РГЭУ (РИНХ): вокалисты, ансамбли и участники концертных программ выходят на сцену перед ректором и гостями. Если вы поёте, танцуете, играете или просто мечтаете попробовать сцену, здесь можно найти команду и репетиции без лишнего стресса.",where:W},
+shtab:{long:"Штаб студенческих отрядов объединяет ребят, которые хотят зарабатывать, путешествовать и работать в команде. Студотряды дают первый серьёзный рабочий опыт, новых друзей по всей области и атмосферу настоящего братства. Участие хорошо смотрится в резюме: работодатели ценят ответственность и умение работать в коллективе. Набор и виды отрядов объявляет штаб.",where:W},
+vol:{long:"Волонтёрский центр помогает попробовать себя в добрых делах: социальные акции, помощь на городских и университетских мероприятиях, проекты для тех, кому нужна поддержка. Это шанс научиться организовывать события, работать с людьми и увидеть реальный результат своего труда. Волонтёрство подходит и новичкам: помогут освоиться и подскажут, с чего начать.",where:W},
+dorm:{long:"Студенческий совет общежития — часть студсовета университета, которая заботится о жизни в общежитиях. Здесь решают бытовые вопросы, организуют встречи и праздники для соседей, помогают новичкам адаптироваться. Если вы живёте в общежитии и хотите сделать его уютнее, а заодно получить опыт управления и организации, вам сюда.",where:"Общежитие на ул. 2-я Краснодарская, 113/1 или через студенческий совет: sovetrgeurinh@yandex.ru."},
+kip:{long:"Точка кипения РГЭУ (РИНХ) — площадка для проектных сессий, форумов, дискуссий и встреч студентов с экспертами. Здесь проходят традиционные встречи ректора со студентами и профессиональные мероприятия. Можно прийти послушать, познакомиться с предпринимателями и учёными или предложить свою идею. Отличное место, чтобы найти единомышленников и вдохновение для проекта.",where:"Следите за анонсами в календаре мероприятий на rsue.ru. Вопросы можно задать через студсовет: sovetrgeurinh@yandex.ru."},
+sci:{long:"Студенческая наука — это конференции, семинары и научные проекты, в том числе международного уровня. Участие даёт опыт публичных выступлений, первые публикации и знакомство с преподавателями-исследователями. Даже если вы не планируете в аспирантуру, умение анализировать и защищать идею пригодится в любой профессии. Начать можно с доклада на кафедре.",where:"Кафедра вашего факультета или раздел «Студенческая наука» на rsue.ru. Подсказать направление могут в студсовете: sovetrgeurinh@yandex.ru."},
+proj:{long:"Проектная деятельность позволяет собрать команду и поработать над реальной задачей: от идеи до результата. Вы учитесь распределять роли, считать ресурсы, защищать проект и общаться с партнёрами. Такой опыт ценится при трудоустройстве и на конкурсах. Если у вас уже есть идея, здесь помогут её оформить, а если нет, подскажут, к какой команде присоединиться.",where:"Раздел «Проектная деятельность» на rsue.ru или студенческий совет: sovetrgeurinh@yandex.ru."},
+cyber:{long:"Киберспортивный клуб РГЭУ работает с 2021 года. В университете оборудована площадка с мощными компьютерами для соревнований, поэтому тренироваться и играть можно в комфортных условиях. Это возможность найти команду, выступать за вуз на турнирах и общаться с теми, кто разделяет ваши увлечения. Подходит и тем, кто только присматривается к киберспорту.",where:W},
+chess:{long:"Шахматный клуб носит имя международного гроссмейстера Кудряшова и продолжает традиции университета в интеллектуальном спорте. Шахматы развивают стратегическое мышление, выдержку и умение принимать решения под давлением. Клуб подойдёт и начинающим, и тем, кто хочет усиливать игру, участвовать в турнирах и найти спарринг-партнёров среди студентов.",where:W},
+tour:{long:"Туристический и бильярдный клубы — для тех, кто хочет отдыхать с пользой. Походы и поездки сближают лучше любых лекций, а бильярд помогает отвлечься от учёбы и найти новых друзей по интересам. Это спокойный формат, где не нужны разряды и опыт: достаточно желания проводить время активно и в хорошей компании.",where:W},
+sport:{long:"В университете четыре спортивных комплекса, а студенты регулярно выступают в спартакиадах и соревнованиях. Секции помогают держать форму, снимать стресс после пар и находить друзей. Лучшие спортсмены представляют РГЭУ (РИНХ) на соревнованиях, а для новичков есть возможность просто заниматься для себя. Узнайте, какие виды спорта доступны в этом семестре.",where:"Кафедра физического воспитания и спорта. Если не знаете, куда идти, напишите в студсовет: sovetrgeurinh@yandex.ru."},
+media:{long:"Медиацентр университета рассказывает о жизни РГЭУ (РИНХ): новости, фото, видео и материалы о студентах. Рядом работают медиа- и телевизионный клубы студенческого совета. Здесь можно научиться снимать, монтировать, писать тексты и вести соцсети, а заодно собрать портфолио, которое пригодится в маркетинге, журналистике и любой профессии.",where:W},
+career:{long:"Центр развития карьеры помогает студентам выйти на рынок труда: практики и стажировки на предприятиях Ростовской области, ЮФО и СКФО, подготовка резюме и подготовка к собеседованиям. Чем раньше вы начнёте, тем легче будет получить первое место работы. Особенно полезно третьекурсникам и выпускникам, но познакомиться с возможностями можно с первого курса.",where:"Раздел «Центр развития карьеры и практической подготовки обучающихся» на rsue.ru или студенческий совет: sovetrgeurinh@yandex.ru."},
+mfc:{long:"Студенческий МФЦ открылся в январе 2026 года как новая сервисная экосистема для обучающихся. Идея в том, чтобы решать вопросы в одном месте, без беготни между кабинетами. Это удобно и новичкам, и старшекурсникам. Загляните, чтобы узнать, какие услуги и справки доступны именно вам.",where:"Раздел «Студенческий МФЦ» на rsue.ru или главный корпус, ул. Б. Садовая, 69. График и услуги уточняйте на месте."}
+};
+A.forEach(a => Object.assign(a, X[a.id]));
+const EXTRA = { /* Заполните, например: sovet:{contact:"@username, +7 900 000-00-00", when:"Пн и Чт, 15:00, ауд. 100. Набор до 30 сентября"} */ };
+A.forEach(a => Object.assign(a, EXTRA[a.id] || {}));
+const FIRST = ["sovet","vol","skc","sport","mfc"];
+const EV = [
+{m:"17 фев",t:"День российских студенческих отрядов",d:"Встречи и дискуссии в Точке кипения (по материалам прошлых лет)."},
+{m:"Весна",t:"«Студенческая весна»",d:"Ежегодный творческий праздник; в 2025 году прошёл 6 апреля."},
+{m:"Ежегодно",t:"Фестиваль «Мы вместе!»",d:"Интернациональный межвузовский фестиваль, который проводится с 2008 года."},
+{m:"Декабрь",t:"Премии «Золотые страницы РИНХа» и «Ветка каштана»",d:"Награждение лучших студентов и преподавателей."}
+];
+const st = {tab:"all",q:"",int:new Set(),lvl:"",fmt:"any",open:null};
+let fav = new Set(); try { fav = new Set(JSON.parse(localStorage.getItem("fav")||"[]")); } catch(e){}
+const save = () => { try { localStorage.setItem("fav", JSON.stringify([...fav])); } catch(e){} };
+document.getElementById("stat").textContent = A.length + " активностей и центров";
+const $ = id => document.getElementById(id);
+function hit(a){ const q = st.q.trim().toLowerCase(); return !q || (a.t+" "+a.d+" "+a.i.map(x=>I[x]).join(" ")).toLowerCase().includes(q); }
+function list(){
+  const base = st.tab==="fav" ? A.filter(a=>fav.has(a.id)) : A;
+  return base.map(a=>({a,s:a.i.filter(x=>st.int.has(x)).length})).filter(({a,s})=>hit(a)&&(!st.first||FIRST.includes(a.id))&&(!st.lvl||a.l.includes(st.lvl))&&(st.fmt==="any"||a.f==="both"||a.f===st.fmt)&&(!st.int.size||s>0)).sort((x,y)=>y.s-x.s).map(x=>x.a);
+}
+function el(h){ const d=document.createElement("div"); d.innerHTML=h; return d.firstElementChild; }
+function filters(){
+  const f=$("filters"); f.innerHTML="";
+  if(st.tab!=="all") return;
+  const row=el('<div class="row"></div>');
+  const fb=el('<button class="chip'+(st.first?" on":"")+'">🌟 Первокурснику</button>'); fb.onclick=()=>{st.first=!st.first;render();}; row.appendChild(fb);
+  for(const k in I){ const b=el('<button class="chip'+(st.int.has(k)?" on":"")+'">'+I[k]+'</button>'); b.onclick=()=>{st.int.has(k)?st.int.delete(k):st.int.add(k);render();}; row.appendChild(b); }
+  f.appendChild(row);
+  const s=el('<div class="sel"><select id="sl"></select><select id="sf"></select></div>');
+  for(const k in L) s.children[0].add(new Option(L[k],k,0,k===st.lvl));
+  for(const k in F) s.children[1].add(new Option(F[k],k,0,k===st.fmt));
+  s.children[0].onchange=e=>{st.lvl=e.target.value;render();}; s.children[1].onchange=e=>{st.fmt=e.target.value;render();};
+  f.appendChild(s);
+}
+function card(a){
+  const c=el('<div class="card'+(st.open===a.id?" open":"")+'"></div>');
+  c.innerHTML='<div class="top"><div class="ic">'+a.e+'</div><div class="ti"><b></b><span></span></div><button class="star">'+(fav.has(a.id)?"⭐":"☆")+'</button></div><div class="tags"></div><div class="more"><p class="lg"></p><p class="wh"></p><div class="btns"></div></div>';
+  c.querySelector("b").textContent=a.t; c.querySelector("span").textContent=a.d;
+  const tg_=c.querySelector(".tags"); a.i.forEach(x=>{const t=el('<span class="tag"></span>');t.textContent=I[x];tg_.appendChild(t);});
+  const ft=el('<span class="tag"></span>'); ft.textContent={both:"Очно и онлайн",offline:"Очно",online:"Онлайн"}[a.f]; tg_.appendChild(ft);
+  c.querySelector(".lg").textContent=a.long; c.querySelector(".wh").textContent="Куда обращаться: "+a.where+" "+a.how+(a.contact?"\nКонтакт: "+a.contact:"")+"\nКогда: "+(a.when||"расписание и набор уточняются");
+  const bt=c.querySelector(".btns");
+  bt.appendChild(el('<a class="b" target="_blank" rel="noopener" href="'+a.url+'">Подробнее</a>'));
+  const ap=el('<button class="b">Записаться</button>'); ap.onclick=()=>apply(a); bt.insertBefore(ap,bt.firstChild);
+  const sh=el('<button class="b alt">Поделиться</button>'); sh.onclick=()=>{const u="https://t.me/share/url?url="+encodeURIComponent("https://t.me/rinh_activities_bot")+"&text="+encodeURIComponent(a.t+": смотри в каталоге активностей РГЭУ (РИНХ)"); tg&&tg.openTelegramLink?tg.openTelegramLink(u):window.open(u,"_blank");}; bt.appendChild(sh);
+  c.onclick=e=>{ if(e.target.closest("a,.star")) return; st.open=st.open===a.id?null:a.id; render(); };
+  c.querySelector(".star").onclick=e=>{ e.stopPropagation(); fav.has(a.id)?fav.delete(a.id):fav.add(a.id); save(); if(tg&&tg.HapticFeedback) tg.HapticFeedback.selectionChanged(); render(); };
+  return c;
+}
+let me = null; try { me = JSON.parse(localStorage.getItem("me") || "null"); } catch(e) {}
+let reqs = []; try { reqs = JSON.parse(localStorage.getItem("reqs") || "[]"); } catch(e) {}
+const put = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
+const say = m => tg && tg.showAlert ? tg.showAlert(m) : alert(m);
+const tu = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || null;
+const COURSES = ["1 курс","2 курс","3 курс","4 курс","5 курс","Магистратура","Аспирантура"];
+const FAC = ["Менеджмента и предпринимательства","Торговое дело","Компьютерных технологий и информационной безопасности","Учетно-экономический","Юридический","Лингвистики и журналистики","Другой"];
+function apply(a) {
+  if (!me) { st.back = a.id; say("Чтобы записаться, войдите в кабинет: укажите ФИО и курс. Потом вернём вас к этой активности."); st.tab = "me"; render(); return; }
+  const via = tg && tg.platform && tg.platform !== "unknown" && tg.initDataUnsafe && !tg.initDataUnsafe.query_id && tg.sendData ? "bot" : "mail";
+  const mail = () => {
+    const body = "Здравствуйте! Хочу записаться: " + a.t + "\nФИО: " + me.fio + "\nКурс: " + me.course + (me.fac ? "\nФакультет: " + me.fac : "") + (tu && tu.username ? "\nTelegram: @" + tu.username : "");
+    if (reqs[0]) { reqs[0].via = "mail"; put("reqs", reqs); }
+    location.href = "mailto:" + M + "?subject=" + encodeURIComponent("Заявка: " + a.t) + "&body=" + encodeURIComponent(body);
+  };
+  reqs = reqs.filter(r => r.id !== a.id); reqs.unshift({id: a.id, t: a.t, d: new Date().toLocaleDateString("ru-RU"), via}); put("reqs", reqs);
+  if (via === "bot") {
+    try { tg.sendData(JSON.stringify({t: "apply", id: a.id, title: a.t, fio: me.fio, course: me.course, fac: me.fac || ""})); } catch(e) { mail(); return; }
+    setTimeout(() => { say("Из этого режима заявка не отправилась. Откроется письмо."); mail(); }, 1500);
+  } else mail();
+}
+function cabinet(l) {
+  if (!me || st.edit) {
+    const c = el('<div class="card"><b>Вход в личный кабинет</b><p class="hint">Укажите данные один раз: они подставятся в заявки на активности. Данные хранятся на вашем устройстве и передаются организаторам только когда вы нажимаете «Записаться».</p><input id="fio" placeholder="Фамилия Имя Отчество" autocomplete="name"><select id="crs"></select><select id="fac"></select><label class="chk"><input type="checkbox" id="ok"><span>Согласен на обработку ФИО и курса для подачи заявок</span></label><div class="err" id="er"></div><button class="b" id="go">Войти</button></div>');
+    COURSES.forEach(x => c.querySelector("#crs").add(new Option(x, x, 0, me && me.course === x)));
+    c.querySelector("#crs").insertBefore(new Option("Выберите курс", "", 1, !me), c.querySelector("#crs").firstChild);
+    c.querySelector("#fac").add(new Option("Факультет (по желанию)", ""));
+    FAC.forEach(x => c.querySelector("#fac").add(new Option(x, x, 0, me && me.fac === x)));
+    if (me) c.querySelector("#fio").value = me.fio;
+    c.querySelector("#go").onclick = () => {
+      const fio = c.querySelector("#fio").value.trim().replace(/\s+/g, " "), crs = c.querySelector("#crs").value, er = c.querySelector("#er");
+      if (fio.split(" ").length < 2) { er.textContent = "Введите фамилию и имя (отчество по желанию)."; return; }
+      if (!crs) { er.textContent = "Выберите курс."; return; }
+      if (!c.querySelector("#ok").checked) { er.textContent = "Нужно согласие на обработку данных."; return; }
+      me = {fio, course: crs, fac: c.querySelector("#fac").value}; put("me", me); st.edit = false; if (st.back) { st.tab = "all"; st.open = st.back; st.back = null; } render();
+    };
+    l.appendChild(c); return;
+  }
+  const p = el('<div class="card"><div class="top"><div class="ic">👤</div><div class="ti"><b></b><span></span></div></div><div class="btns"><button class="b alt" id="ed">Изменить</button><button class="b alt" id="lo">Выйти</button></div></div>');
+  p.querySelector("b").textContent = me.fio;
+  p.querySelector("span").textContent = me.course + (me.fac ? ", " + me.fac : "") + (tu && tu.username ? " · @" + tu.username : "");
+  p.querySelector("#ed").onclick = () => { st.edit = true; render(); };
+  p.querySelector("#lo").onclick = () => { const out = () => { me = null; reqs = []; try { localStorage.removeItem("me"); localStorage.removeItem("reqs"); } catch(e) {} render(); }; const q = "Выйти и удалить профиль и список заявок с этого устройства?"; if (tg && tg.showConfirm) tg.showConfirm(q, ok => ok && out()); else if (confirm(q)) out(); };
+  l.appendChild(p);
+  l.appendChild(el('<div class="cnt">Мои заявки: ' + reqs.length + '</div>'));
+  reqs.forEach(r => { const c = el('<div class="card"><b></b><span class="hint"></span></div>'); c.querySelector("b").textContent = r.t; c.querySelector("span").textContent = (r.via === "bot" ? "Заявка отправлена боту " + r.d + ". Ответ придёт в чат с ботом." : "Письмо подготовлено " + r.d + ". Отправьте его из почтового приложения."); l.appendChild(c); });
+  l.appendChild(el('<div class="cnt">В избранном: ' + fav.size + '</div>'));
+}
+function render(){
+  if(tg&&tg.BackButton){ (st.tab!=="all"||st.open)?tg.BackButton.show():tg.BackButton.hide(); }
+  $("hp").textContent = me ? "Привет, " + (me.fio.split(" ")[1] || me.fio) + "! Найди, чем заняться в университете" : "Найди клуб, центр или секцию по интересам";
+  document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("on",b.dataset.t===st.tab));
+  filters(); const l=$("list"); l.innerHTML="";
+  if(st.tab==="me"){ cabinet(l); return; }
+  if(st.tab==="ev"){
+    EV.forEach(x=>{const c=el('<div class="card ev"><div class="date"></div><div class="ti"><b></b><span></span></div></div>');c.querySelector(".date").textContent=x.m;c.querySelector("b").textContent=x.t;c.querySelector("span").textContent=x.d;l.appendChild(c);});
+    l.appendChild(el('<div class="card"><div class="btns"><a class="b" target="_blank" rel="noopener" href="https://rsue.ru">Календарь мероприятий на rsue.ru</a></div></div>'));
+    return;
+  }
+  const items=list();
+  if(!items.length){ l.innerHTML='<div class="empty">'+(st.tab==="fav"?"Пока пусто. Сохраняйте активности ⭐":"Ничего не найдено. Измените фильтры.")+'</div>'; return; }
+  l.appendChild(el('<div class="cnt">Найдено: '+items.length+'</div>'));
+  items.forEach(a=>l.appendChild(card(a)));
+}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{st.tab=b.dataset.t;render();});
+$("q").oninput=e=>{st.q=e.target.value;if(st.tab!=="all"&&st.tab!=="fav")st.tab="all";render();};
+if(tg&&tg.BackButton) tg.BackButton.onClick(()=>{ if(st.open) st.open=null; else { st.tab="all"; st.edit=false; } render(); });
+render();
+</script>
+</body>
+</html>
